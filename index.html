@@ -1,0 +1,1169 @@
+<title>⏱ ファシリタイマー</title>
+<style>
+/* ===== TOKENS ===== */
+:root {
+  --bg:          #0D0F14;
+  --surf:        #161922;
+  --panel:       #1E2130;
+  --border:      #272B3E;
+  --border-hi:   #363C58;
+  --accent:      #5B9EFF;
+  --accent-dim:  rgba(91,158,255,.14);
+  --accent-glow: rgba(91,158,255,.28);
+  --tx1:         #ECF0FF;
+  --tx2:         #7B84A3;
+  --tx3:         #454D6B;
+  --warn:        #F5A623;
+  --danger:      #EF4444;
+  --ok:          #34D399;
+  --bg-warn:     rgba(245,166,35,.10);
+  --bg-danger:   rgba(239,68,68,.15);
+  --shadow:      0 2px 12px rgba(0,0,0,.45);
+  --r:           8px;
+}
+@media (prefers-color-scheme: light) { :root {
+  --bg:          #F0F2F8;
+  --surf:        #FFFFFF;
+  --panel:       #E8EBF5;
+  --border:      #CDD2E8;
+  --border-hi:   #B0B9D8;
+  --accent-dim:  rgba(91,158,255,.12);
+  --accent-glow: rgba(91,158,255,.20);
+  --tx1:         #141728;
+  --tx2:         #4B5278;
+  --tx3:         #9BA5C8;
+  --shadow:      0 2px 8px rgba(0,0,0,.10);
+}}
+:root[data-theme="dark"]  { --bg:#0D0F14;--surf:#161922;--panel:#1E2130;--border:#272B3E;--border-hi:#363C58;--accent-dim:rgba(91,158,255,.14);--accent-glow:rgba(91,158,255,.28);--tx1:#ECF0FF;--tx2:#7B84A3;--tx3:#454D6B;--shadow:0 2px 12px rgba(0,0,0,.45); }
+:root[data-theme="light"] { --bg:#F0F2F8;--surf:#FFFFFF;--panel:#E8EBF5;--border:#CDD2E8;--border-hi:#B0B9D8;--accent-dim:rgba(91,158,255,.12);--accent-glow:rgba(91,158,255,.20);--tx1:#141728;--tx2:#4B5278;--tx3:#9BA5C8;--shadow:0 2px 8px rgba(0,0,0,.10); }
+
+/* ===== RESET ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{height:100%;font-size:16px}
+body{min-height:100%;background:var(--bg);color:var(--tx1);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font:inherit;color:inherit;background:none;border:none;outline:none}
+*:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ===== UTILS ===== */
+.tabular{font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.hidden{display:none!important}
+
+/* ===== TOPBAR ===== */
+#topbar{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 20px;
+  background:var(--surf);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;
+}
+#topbar .logo{display:flex;align-items:center;gap:8px;font-size:.8rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tx2)}
+#topbar .logo svg{opacity:.7}
+#topbar .spacer{flex:1}
+.tb-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 12px;border-radius:var(--r);
+  font-size:.78rem;font-weight:600;letter-spacing:.04em;
+  border:1px solid var(--border);
+  color:var(--tx2);
+  transition:all .15s;
+}
+.tb-btn:hover{background:var(--panel);color:var(--tx1);border-color:var(--border-hi)}
+.tb-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tb-btn.primary:hover{filter:brightness(1.12)}
+
+/* ===== SETUP SCREEN ===== */
+#setup-screen{
+  max-width:900px;margin:0 auto;
+  padding:28px 20px 60px;
+  display:grid;
+  grid-template-columns:1fr 280px;
+  gap:24px;
+  align-items:start;
+}
+@media(max-width:700px){#setup-screen{grid-template-columns:1fr}}
+
+.section-label{
+  font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--tx3);margin-bottom:12px;
+}
+
+/* Agenda list */
+#agenda-list{display:flex;flex-direction:column;gap:6px}
+.agenda-item{
+  display:grid;
+  grid-template-columns:28px 1fr auto auto auto;
+  gap:8px;align-items:center;
+  background:var(--surf);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:10px 12px;
+  transition:border-color .15s, box-shadow .15s;
+  cursor:default;
+  position:relative;
+}
+.agenda-item.drag-over{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow)}
+.agenda-item.dragging{opacity:.45}
+.drag-handle{
+  color:var(--tx3);cursor:grab;font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  user-select:none;
+}
+.drag-handle:active{cursor:grabbing}
+.agenda-title-input{
+  background:transparent;
+  font-size:.88rem;font-weight:500;
+  color:var(--tx1);
+  width:100%;min-width:0;
+}
+.agenda-title-input::placeholder{color:var(--tx3)}
+.duration-input{
+  width:64px;text-align:center;
+  font-size:.85rem;font-weight:600;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:5px;
+  padding:4px 6px;
+  font-variant-numeric:tabular-nums;
+  color:var(--tx1);
+}
+.duration-input:focus{border-color:var(--accent)}
+.owner-input{
+  width:80px;
+  font-size:.78rem;color:var(--tx2);
+  background:var(--panel);border:1px solid var(--border);border-radius:5px;
+  padding:4px 6px;
+}
+.owner-input::placeholder{color:var(--tx3)}
+.del-btn{
+  width:28px;height:28px;border-radius:5px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--tx3);font-size:15px;
+  transition:all .12s;
+}
+.del-btn:hover{background:rgba(239,68,68,.15);color:var(--danger)}
+
+#add-agenda-btn{
+  margin-top:8px;
+  display:flex;align-items:center;gap:8px;
+  padding:10px 14px;border-radius:var(--r);
+  border:1.5px dashed var(--border);
+  color:var(--tx3);font-size:.84rem;font-weight:500;
+  transition:all .15s;width:100%;
+}
+#add-agenda-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+/* Right panel */
+.right-panel{display:flex;flex-direction:column;gap:16px}
+
+.info-card{
+  background:var(--surf);border:1px solid var(--border);
+  border-radius:var(--r);padding:16px;
+}
+.info-row{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:.82rem;padding:5px 0;
+  border-bottom:1px solid var(--border);
+}
+.info-row:last-child{border-bottom:none}
+.info-row .label{color:var(--tx2)}
+.info-row .value{font-weight:600;font-variant-numeric:tabular-nums}
+.info-row .value.accent{color:var(--accent)}
+
+/* Preset selector */
+.preset-row{display:flex;gap:6px}
+#preset-select{
+  flex:1;background:var(--panel);border:1px solid var(--border);
+  border-radius:5px;padding:6px 8px;font-size:.82rem;color:var(--tx1);
+  cursor:pointer;
+}
+#preset-select option{background:var(--surf);color:var(--tx1)}
+
+/* Settings in right panel */
+.setting-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 0;border-bottom:1px solid var(--border);
+  font-size:.82rem;
+}
+.setting-row:last-child{border-bottom:none}
+.setting-row .label{color:var(--tx2)}
+
+/* Toggle switch */
+.toggle{position:relative;width:38px;height:20px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{
+  position:absolute;inset:0;border-radius:10px;
+  background:var(--border);cursor:pointer;
+  transition:background .2s;
+}
+.toggle input:checked+.toggle-track{background:var(--accent)}
+.toggle-track::after{
+  content:'';position:absolute;
+  width:14px;height:14px;border-radius:50%;
+  background:#fff;top:3px;left:3px;
+  transition:transform .2s;
+}
+.toggle input:checked+.toggle-track::after{transform:translateX(18px)}
+
+.mini-select{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:4px;padding:3px 6px;font-size:.76rem;color:var(--tx1);
+  cursor:pointer;
+}
+
+/* Start button */
+#start-btn{
+  width:100%;padding:14px;border-radius:var(--r);
+  background:var(--accent);color:#fff;
+  font-size:.95rem;font-weight:700;letter-spacing:.05em;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:filter .15s,transform .1s;
+  box-shadow:0 4px 20px rgba(91,158,255,.35);
+}
+#start-btn:hover{filter:brightness(1.1)}
+#start-btn:active{transform:scale(.98)}
+
+/* JSON import/export */
+.io-row{display:flex;gap:6px}
+.io-btn{
+  flex:1;padding:7px;border-radius:5px;font-size:.76rem;font-weight:600;
+  border:1px solid var(--border);color:var(--tx2);
+  transition:all .12s;
+}
+.io-btn:hover{background:var(--panel);color:var(--tx1)}
+
+/* ===== RUNNING SCREEN ===== */
+#running-screen{
+  display:flex;flex-direction:column;
+  min-height:calc(100vh - 56px);
+  padding:0;
+}
+
+/* Progress bar */
+#progress-bar-wrap{
+  height:3px;background:var(--border);
+  position:relative;overflow:hidden;
+}
+#progress-bar-fill{
+  height:100%;background:var(--accent);
+  transition:width .5s linear, background .3s;
+  position:relative;
+}
+#progress-bar-fill::after{
+  content:'';position:absolute;right:0;top:0;
+  width:8px;height:100%;
+  background:rgba(255,255,255,.6);
+  border-radius:0 2px 2px 0;
+}
+
+/* Agenda breadcrumb */
+#agenda-breadcrumb{
+  display:flex;align-items:center;gap:0;
+  overflow-x:auto;padding:10px 20px;
+  background:var(--surf);border-bottom:1px solid var(--border);
+  scrollbar-width:none;
+}
+#agenda-breadcrumb::-webkit-scrollbar{display:none}
+.bc-item{
+  display:flex;align-items:center;gap:8px;
+  font-size:.74rem;padding:4px 10px;border-radius:4px;
+  color:var(--tx3);white-space:nowrap;flex-shrink:0;
+  transition:all .15s;
+}
+.bc-item.done{color:var(--ok);text-decoration:line-through;text-decoration-color:rgba(52,211,153,.4)}
+.bc-item.active{background:var(--accent-dim);color:var(--accent);font-weight:600}
+.bc-item.active::before{content:'▶';font-size:.6rem}
+.bc-sep{color:var(--border-hi);font-size:.7rem;flex-shrink:0}
+
+/* Timer main */
+#timer-main{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:16px;padding:32px 20px;
+  transition:background .4s;
+}
+#timer-main.state-warn{background:var(--bg-warn)}
+#timer-main.state-danger{background:var(--bg-danger)}
+
+#current-title{
+  font-size:1.1rem;font-weight:600;letter-spacing:.02em;
+  color:var(--tx2);text-align:center;max-width:600px;
+}
+#current-owner{color:var(--tx3);font-size:.82rem;margin-top:2px}
+
+/* Giant timer */
+#timer-display{
+  font-size:clamp(80px, 18vw, 200px);
+  font-weight:800;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+  color:var(--tx1);
+  transition:color .3s;
+  text-shadow:none;
+  user-select:none;
+}
+#timer-display.state-warn{color:var(--warn)}
+#timer-display.state-danger{color:var(--danger)}
+#timer-display.overtime::before{
+  content:'+';font-size:.6em;opacity:.7;
+  vertical-align:top;margin-top:.1em;margin-right:.02em;
+}
+
+/* Status badge */
+#status-badge{
+  font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  padding:4px 12px;border-radius:20px;
+  background:var(--panel);color:var(--tx3);
+  transition:all .2s;
+}
+#status-badge.running{background:rgba(52,211,153,.15);color:var(--ok)}
+#status-badge.paused{background:var(--panel);color:var(--tx2)}
+#status-badge.warn{background:rgba(245,166,35,.2);color:var(--warn)}
+#status-badge.danger{background:rgba(239,68,68,.2);color:var(--danger)}
+#status-badge.finished{background:rgba(52,211,153,.15);color:var(--ok)}
+
+/* Controls */
+#controls{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
+}
+.ctrl-btn{
+  width:48px;height:48px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;
+  border:1px solid var(--border);background:var(--surf);
+  color:var(--tx2);
+  transition:all .12s;
+}
+.ctrl-btn:hover{background:var(--panel);color:var(--tx1);border-color:var(--border-hi)}
+.ctrl-btn.main-ctrl{
+  width:60px;height:60px;border-radius:12px;font-size:24px;
+  background:var(--accent);color:#fff;border-color:var(--accent);
+  box-shadow:0 4px 16px rgba(91,158,255,.35);
+}
+.ctrl-btn.main-ctrl:hover{filter:brightness(1.12)}
+.ctrl-btn.main-ctrl.paused{background:var(--ok);border-color:var(--ok);box-shadow:0 4px 16px rgba(52,211,153,.3)}
+.ext-btn{
+  padding:8px 14px;border-radius:8px;
+  font-size:.78rem;font-weight:600;letter-spacing:.04em;
+  border:1px solid var(--border);background:var(--surf);
+  color:var(--tx2);transition:all .12s;
+}
+.ext-btn:hover{background:var(--panel);color:var(--tx1)}
+
+/* Bottom context */
+#timer-bottom{
+  display:flex;gap:0;background:var(--surf);border-top:1px solid var(--border);
+}
+.bottom-cell{
+  flex:1;padding:14px 20px;
+  border-right:1px solid var(--border);
+}
+.bottom-cell:last-child{border-right:none}
+.bottom-cell .cell-label{font-size:.68rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--tx3);margin-bottom:4px}
+.bottom-cell .cell-value{font-size:.9rem;font-weight:600;font-variant-numeric:tabular-nums;color:var(--tx2)}
+.bottom-cell .cell-value.next-title{font-weight:500;font-size:.85rem;color:var(--tx1)}
+
+@media(max-width:500px){
+  .bottom-cell{padding:10px 14px}
+  .ctrl-btn{width:40px;height:40px;font-size:17px}
+  .ctrl-btn.main-ctrl{width:52px;height:52px;font-size:20px}
+}
+
+/* Keyboard hint */
+#kbd-hint{
+  text-align:center;font-size:.68rem;color:var(--tx3);
+  padding:6px;letter-spacing:.04em;
+}
+kbd{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:3px;padding:1px 5px;font-size:.65rem;font-family:inherit;
+  color:var(--tx3);
+}
+
+/* Finish overlay */
+#finish-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(13,15,20,.95);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;
+  animation:fadeIn .3s ease;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+#finish-overlay .fin-emoji{font-size:72px;animation:pop .4s cubic-bezier(.34,1.56,.64,1) .1s both}
+@keyframes pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+#finish-overlay h2{font-size:2rem;font-weight:800;color:var(--tx1)}
+#finish-overlay p{color:var(--tx2);font-size:.95rem}
+#finish-overlay .fin-actions{display:flex;gap:10px;margin-top:8px}
+
+/* Import textarea modal */
+#import-modal{
+  position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,.7);
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+}
+.modal-box{
+  background:var(--surf);border:1px solid var(--border);
+  border-radius:12px;padding:20px;width:100%;max-width:480px;
+}
+.modal-box h3{font-size:1rem;font-weight:700;margin-bottom:12px}
+.modal-box textarea{
+  width:100%;height:160px;resize:vertical;
+  background:var(--panel);border:1px solid var(--border);border-radius:6px;
+  padding:10px;font-size:.8rem;font-family:monospace;color:var(--tx1);
+  outline:none;
+}
+.modal-box textarea:focus{border-color:var(--accent)}
+.modal-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
+.modal-btn{padding:8px 16px;border-radius:6px;font-size:.82rem;font-weight:600;border:1px solid var(--border);color:var(--tx2);transition:all .12s}
+.modal-btn:hover{background:var(--panel);color:var(--tx1)}
+.modal-btn.ok{background:var(--accent);color:#fff;border-color:var(--accent)}
+.modal-btn.ok:hover{filter:brightness(1.1)}
+
+@media(prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+</style>
+
+<!-- ===== TOPBAR ===== -->
+<div id="topbar">
+  <div class="logo">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M8 4v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    ファシリタイマー
+  </div>
+  <div class="spacer"></div>
+  <button class="tb-btn" id="theme-btn" title="テーマ切替">🌙</button>
+  <button class="tb-btn" id="sound-toggle-btn">🔔 音あり</button>
+  <button class="tb-btn" id="fullscreen-btn">⛶</button>
+  <button class="tb-btn primary hidden" id="back-to-setup-btn">← 編集</button>
+</div>
+
+<!-- ===== SETUP SCREEN ===== -->
+<div id="setup-screen">
+  <!-- Left: agenda list -->
+  <div>
+    <div class="section-label">アジェンダ</div>
+    <div id="agenda-list"></div>
+    <button id="add-agenda-btn">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      アジェンダを追加
+    </button>
+  </div>
+
+  <!-- Right: summary + settings -->
+  <div class="right-panel">
+    <!-- Summary -->
+    <div class="info-card">
+      <div class="section-label">サマリ</div>
+      <div class="info-row"><span class="label">アジェンダ数</span><span class="value accent" id="summary-count">0 件</span></div>
+      <div class="info-row"><span class="label">合計時間</span><span class="value accent" id="summary-total">00:00</span></div>
+      <div class="info-row"><span class="label">予定終了</span><span class="value" id="summary-end">--:--</span></div>
+    </div>
+
+    <!-- Presets -->
+    <div class="info-card">
+      <div class="section-label">プリセット</div>
+      <div class="preset-row">
+        <select id="preset-select"><option value="">— プリセットを選択 —</option></select>
+        <button class="tb-btn" id="load-preset-btn" title="読み込み">↓ 読込</button>
+        <button class="tb-btn" id="del-preset-btn" title="削除">✕</button>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <input id="preset-name-input" type="text" placeholder="プリセット名" style="flex:1;background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:.82rem;color:var(--tx1)">
+        <button class="tb-btn" id="save-preset-btn">💾 保存</button>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="info-card">
+      <div class="section-label">設定</div>
+      <div class="setting-row">
+        <span class="label">自動で次へ進む</span>
+        <label class="toggle"><input type="checkbox" id="auto-advance-chk" checked><span class="toggle-track"></span></label>
+      </div>
+      <div class="setting-row">
+        <span class="label">アラート音</span>
+        <select class="mini-select" id="sound-type-sel">
+          <option value="bell">ベル</option>
+          <option value="chime">チャイム</option>
+          <option value="applause">拍手</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- JSON I/O -->
+    <div class="info-card">
+      <div class="section-label">インポート / エクスポート</div>
+      <div class="io-row">
+        <button class="io-btn" id="import-btn">📥 JSON読込</button>
+        <button class="io-btn" id="export-btn">📤 JSON出力</button>
+      </div>
+    </div>
+
+    <button id="start-btn">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2.5l10 5.5-10 5.5V2.5z" fill="currentColor"/></svg>
+      会議を開始
+    </button>
+  </div>
+</div>
+
+<!-- ===== RUNNING SCREEN ===== -->
+<div id="running-screen" class="hidden">
+  <div id="progress-bar-wrap"><div id="progress-bar-fill" style="width:0%"></div></div>
+  <div id="agenda-breadcrumb"></div>
+
+  <div id="timer-main">
+    <div style="text-align:center">
+      <div id="current-title">—</div>
+      <div id="current-owner"></div>
+    </div>
+    <div id="timer-display" class="tabular">00:00</div>
+    <div id="status-badge">待機中</div>
+    <div id="controls">
+      <button class="ctrl-btn" id="prev-btn" title="前へ (←)">⏮</button>
+      <button class="ctrl-btn main-ctrl" id="play-pause-btn" title="再生/停止 (Space)">▶</button>
+      <button class="ctrl-btn" id="next-btn" title="次へ (→)">⏭</button>
+      <button class="ext-btn" id="add30s-btn">+30s</button>
+      <button class="ext-btn" id="add1m-btn">+1分</button>
+      <button class="ctrl-btn" id="reset-btn" title="リセット">↺</button>
+    </div>
+    <div id="kbd-hint"><kbd>Space</kbd> 再生/停止 &nbsp; <kbd>←</kbd><kbd>→</kbd> 前後 &nbsp; <kbd>+</kbd> 1分追加</div>
+  </div>
+
+  <div id="timer-bottom">
+    <div class="bottom-cell">
+      <div class="cell-label">次のアジェンダ</div>
+      <div class="cell-value next-title" id="next-title">—</div>
+    </div>
+    <div class="bottom-cell">
+      <div class="cell-label">次の時間</div>
+      <div class="cell-value" id="next-dur">—</div>
+    </div>
+    <div class="bottom-cell">
+      <div class="cell-label">会議 経過</div>
+      <div class="cell-value tabular" id="total-elapsed">00:00</div>
+    </div>
+    <div class="bottom-cell">
+      <div class="cell-label">予定終了</div>
+      <div class="cell-value tabular" id="end-time-display">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FINISH OVERLAY ===== -->
+<div id="finish-overlay" class="hidden">
+  <div class="fin-emoji">🎉</div>
+  <h2>会議終了！</h2>
+  <p id="finish-summary">お疲れさまでした</p>
+  <div class="fin-actions">
+    <button class="modal-btn ok" id="finish-restart-btn">もう一度</button>
+    <button class="modal-btn" id="finish-edit-btn">編集画面へ</button>
+  </div>
+</div>
+
+<!-- ===== IMPORT MODAL ===== -->
+<div id="import-modal" class="hidden">
+  <div class="modal-box">
+    <h3>JSONインポート</h3>
+    <textarea id="import-textarea" placeholder='[{"title":"アジェンダ名","durationSec":300,"owner":"担当者"}]'></textarea>
+    <div class="modal-actions">
+      <button class="modal-btn" id="import-cancel-btn">キャンセル</button>
+      <button class="modal-btn ok" id="import-ok-btn">インポート</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+const state = {
+  view: 'setup',
+  agendas: [
+    {id:uid(),title:'アイスブレイク',durationSec:300,owner:''},
+    {id:uid(),title:'共有',durationSec:600,owner:''},
+    {id:uid(),title:'議論',durationSec:1200,owner:''},
+    {id:uid(),title:'まとめ',durationSec:300,owner:''},
+  ],
+  presets: [],
+  settings: {
+    soundEnabled: true,
+    soundType: 'bell',
+    autoAdvance: true,
+    theme: 'dark',
+  },
+  timer: {
+    status: 'idle',
+    currentIndex: 0,
+    remainingSec: 0,
+    isOvertime: false,
+    overtimeSec: 0,
+  },
+  _rafId: null,
+  _lastTs: null,
+  _meetingStartTs: null,
+  _alerted: new Set(),
+  _scheduledEnd: null,
+};
+
+function uid(){ return Math.random().toString(36).slice(2,9) }
+
+// ===== PERSISTENCE =====
+function saveAll(){
+  localStorage.setItem('facili_agendas', JSON.stringify(state.agendas));
+  localStorage.setItem('facili_presets', JSON.stringify(state.presets));
+  localStorage.setItem('facili_settings', JSON.stringify(state.settings));
+  const t = state.timer;
+  localStorage.setItem('facili_session', JSON.stringify({
+    status: t.status === 'running' ? 'paused' : t.status,
+    currentIndex: t.currentIndex,
+    remainingSec: t.remainingSec,
+    isOvertime: t.isOvertime,
+    overtimeSec: t.overtimeSec,
+    view: state.view,
+  }));
+}
+
+function loadAll(){
+  try {
+    const a = localStorage.getItem('facili_agendas');
+    if(a) state.agendas = JSON.parse(a);
+    const p = localStorage.getItem('facili_presets');
+    if(p) state.presets = JSON.parse(p);
+    const s = localStorage.getItem('facili_settings');
+    if(s) Object.assign(state.settings, JSON.parse(s));
+    const sess = localStorage.getItem('facili_session');
+    if(sess){
+      const d = JSON.parse(sess);
+      Object.assign(state.timer, d);
+      if(d.view === 'running') state.view = 'running';
+    }
+  } catch(e){}
+}
+
+// ===== AUDIO =====
+let audioCtx = null;
+function getAudioCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playBell(freq=880, dur=2.0){
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, ctx.currentTime);
+  gain.gain.setValueAtTime(0.4, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+  osc.start(); osc.stop(ctx.currentTime + dur);
+}
+
+function playChime(){
+  [523,659,784,1047].forEach((f,i)=>{
+    setTimeout(()=>playBell(f,1.5),i*120);
+  });
+}
+
+function playApplause(){
+  const ctx = getAudioCtx();
+  const buf = ctx.createBuffer(1, ctx.sampleRate*1.5, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for(let i=0;i<data.length;i++) data[i]=(Math.random()*2-1);
+  const src = ctx.createBufferSource();
+  const filter = ctx.createBiquadFilter();
+  filter.type='bandpass'; filter.frequency.value=2000; filter.Q.value=0.8;
+  const gain = ctx.createGain();
+  src.buffer=buf;
+  src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+  gain.gain.setValueAtTime(0.0,ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.25,ctx.currentTime+0.2);
+  gain.gain.linearRampToValueAtTime(0.35,ctx.currentTime+0.6);
+  gain.gain.linearRampToValueAtTime(0.0,ctx.currentTime+1.5);
+  src.start(); src.stop(ctx.currentTime+1.5);
+}
+
+function playAlert(type){
+  if(!state.settings.soundEnabled) return;
+  try {
+    const t = state.settings.soundType;
+    if(t==='bell') playBell(880,2);
+    else if(t==='chime') playChime();
+    else playApplause();
+  } catch(e){}
+}
+
+function playFinish(){
+  if(!state.settings.soundEnabled) return;
+  try { playChime(); setTimeout(()=>playChime(),600); } catch(e){}
+}
+
+// ===== FORMAT =====
+function fmtSec(sec){
+  const abs = Math.abs(Math.round(sec));
+  const m = Math.floor(abs/60).toString().padStart(2,'0');
+  const s = (abs%60).toString().padStart(2,'0');
+  return `${m}:${s}`;
+}
+
+function fmtTime(date){
+  const h = date.getHours().toString().padStart(2,'0');
+  const m = date.getMinutes().toString().padStart(2,'0');
+  return `${h}:${m}`;
+}
+
+// ===== TIMER LOGIC =====
+function startTimer(){
+  if(state.timer.status==='running') return;
+  if(state.agendas.length===0) return;
+  if(state.timer.status==='idle'){
+    state.timer.currentIndex=0;
+    state.timer.remainingSec=state.agendas[0].durationSec;
+    state.timer.isOvertime=false;
+    state.timer.overtimeSec=0;
+    state._alerted=new Set();
+    state._meetingStartTs=performance.now();
+    // compute scheduled end
+    const totalSec=state.agendas.reduce((a,ag)=>a+ag.durationSec,0);
+    const endDate=new Date(Date.now()+totalSec*1000);
+    state._scheduledEnd=endDate;
+    document.getElementById('end-time-display').textContent=fmtTime(endDate);
+  }
+  state.timer.status='running';
+  state._lastTs=performance.now();
+  tick();
+}
+
+function pauseTimer(){
+  state.timer.status='paused';
+  if(state._rafId){ cancelAnimationFrame(state._rafId); state._rafId=null; }
+}
+
+function tick(){
+  const now=performance.now();
+  const dt=(now-(state._lastTs||now))/1000;
+  state._lastTs=now;
+
+  if(state.timer.status==='running'){
+    if(!state.timer.isOvertime){
+      state.timer.remainingSec -= dt;
+      checkAlerts();
+      if(state.timer.remainingSec<=0){
+        state.timer.remainingSec=0;
+        handleAgendaEnd();
+      }
+    } else {
+      state.timer.overtimeSec += dt;
+    }
+  }
+  renderRunning();
+  if(state.timer.status==='running'){
+    state._rafId=requestAnimationFrame(tick);
+  }
+  saveAll();
+}
+
+function checkAlerts(){
+  const rem=state.timer.remainingSec;
+  const key=`${state.timer.currentIndex}`;
+  if(rem<=60 && !state._alerted.has(key+'60')){ state._alerted.add(key+'60'); playAlert('warn'); }
+  if(rem<=30 && !state._alerted.has(key+'30')){ state._alerted.add(key+'30'); playAlert('warn'); }
+}
+
+function handleAgendaEnd(){
+  const idx=state.timer.currentIndex;
+  if(!state._alerted.has(`${idx}_end`)){ state._alerted.add(`${idx}_end`); playAlert('end'); }
+
+  if(state.settings.autoAdvance){
+    const next=idx+1;
+    if(next<state.agendas.length){
+      goToAgenda(next);
+    } else {
+      finishMeeting();
+    }
+  } else {
+    state.timer.isOvertime=true;
+    state.timer.overtimeSec=0;
+  }
+}
+
+function finishMeeting(){
+  state.timer.status='finished';
+  if(state._rafId){ cancelAnimationFrame(state._rafId); state._rafId=null; }
+  playFinish();
+  // summary
+  const elapsed = state._meetingStartTs ? (performance.now()-state._meetingStartTs)/1000 : 0;
+  document.getElementById('finish-summary').textContent=`総経過時間: ${fmtSec(elapsed)} — お疲れさまでした`;
+  document.getElementById('finish-overlay').classList.remove('hidden');
+  saveAll();
+}
+
+function goToAgenda(idx){
+  if(idx<0||idx>=state.agendas.length) return;
+  state.timer.currentIndex=idx;
+  state.timer.remainingSec=state.agendas[idx].durationSec;
+  state.timer.isOvertime=false;
+  state.timer.overtimeSec=0;
+}
+
+function skipNext(){
+  const next=state.timer.currentIndex+1;
+  if(next>=state.agendas.length){ finishMeeting(); return; }
+  goToAgenda(next);
+  if(state.timer.status==='idle') state.timer.status='running';
+}
+
+function skipPrev(){
+  const prev=state.timer.currentIndex-1;
+  if(prev<0) return;
+  goToAgenda(prev);
+}
+
+function addTime(sec){
+  state.timer.remainingSec+=sec;
+  if(state.timer.isOvertime){
+    state.timer.isOvertime=false;
+    state.timer.overtimeSec=0;
+  }
+}
+
+// ===== RENDER =====
+function renderSetup(){
+  // Agenda list
+  const list=document.getElementById('agenda-list');
+  list.innerHTML='';
+  state.agendas.forEach((ag,i)=>{
+    const div=document.createElement('div');
+    div.className='agenda-item';
+    div.draggable=true;
+    div.dataset.idx=i;
+    div.innerHTML=`
+      <div class="drag-handle" title="ドラッグで並び替え">
+        <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+          <rect y="0" width="10" height="2" rx="1"/>
+          <rect y="6" width="10" height="2" rx="1"/>
+          <rect y="12" width="10" height="2" rx="1"/>
+        </svg>
+      </div>
+      <input class="agenda-title-input" type="text" placeholder="アジェンダタイトル" value="${esc(ag.title)}">
+      <input class="duration-input" type="text" placeholder="05:00" value="${fmtSec(ag.durationSec)}">
+      <input class="owner-input" type="text" placeholder="担当者" value="${esc(ag.owner||'')}">
+      <button class="del-btn" title="削除">✕</button>
+    `;
+    // events
+    div.querySelector('.agenda-title-input').addEventListener('input',e=>{ag.title=e.target.value;updateSummary();saveAll()});
+    div.querySelector('.duration-input').addEventListener('blur',e=>{ag.durationSec=parseDuration(e.target.value);e.target.value=fmtSec(ag.durationSec);updateSummary();saveAll()});
+    div.querySelector('.duration-input').addEventListener('keydown',e=>{if(e.key==='Enter')e.target.blur()});
+    div.querySelector('.owner-input').addEventListener('input',e=>{ag.owner=e.target.value;saveAll()});
+    div.querySelector('.del-btn').addEventListener('click',()=>{state.agendas.splice(i,1);renderSetup();saveAll()});
+    // drag
+    div.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',i);div.classList.add('dragging')});
+    div.addEventListener('dragend',()=>{div.classList.remove('dragging')});
+    div.addEventListener('dragover',e=>{e.preventDefault();div.classList.add('drag-over')});
+    div.addEventListener('dragleave',()=>{div.classList.remove('drag-over')});
+    div.addEventListener('drop',e=>{
+      e.preventDefault();div.classList.remove('drag-over');
+      const from=parseInt(e.dataTransfer.getData('text/plain'));
+      const to=i;
+      if(from===to) return;
+      const [item]=state.agendas.splice(from,1);
+      state.agendas.splice(to,0,item);
+      renderSetup();saveAll();
+    });
+    list.appendChild(div);
+  });
+  updateSummary();
+  updatePresetSelect();
+
+  // Settings sync
+  document.getElementById('auto-advance-chk').checked=state.settings.autoAdvance;
+  document.getElementById('sound-type-sel').value=state.settings.soundType;
+}
+
+function updateSummary(){
+  const total=state.agendas.reduce((a,ag)=>a+ag.durationSec,0);
+  document.getElementById('summary-count').textContent=`${state.agendas.length} 件`;
+  document.getElementById('summary-total').textContent=fmtSec(total);
+  const endDate=new Date(Date.now()+total*1000);
+  document.getElementById('summary-end').textContent=total>0?fmtTime(endDate):'--:--';
+}
+
+function renderRunning(){
+  const {currentIndex,remainingSec,isOvertime,overtimeSec,status}=state.timer;
+  const ag=state.agendas[currentIndex];
+  if(!ag) return;
+
+  // Title
+  document.getElementById('current-title').textContent=ag.title;
+  document.getElementById('current-owner').textContent=ag.owner?`担当: ${ag.owner}`:'';
+
+  // Timer
+  const td=document.getElementById('timer-display');
+  const displaySec=isOvertime?overtimeSec:remainingSec;
+  td.textContent=fmtSec(displaySec);
+  td.classList.toggle('overtime',isOvertime);
+
+  // Colors
+  const main=document.getElementById('timer-main');
+  const badge=document.getElementById('status-badge');
+  main.classList.remove('state-warn','state-danger');
+  td.classList.remove('state-warn','state-danger');
+  badge.className='';
+  badge.id='status-badge';
+
+  if(isOvertime){
+    main.classList.add('state-danger');
+    td.classList.add('state-danger');
+    badge.textContent='超過中'; badge.classList.add('danger');
+  } else if(remainingSec<=30){
+    main.classList.add('state-danger');
+    td.classList.add('state-danger');
+    badge.textContent='残り30秒'; badge.classList.add('danger');
+  } else if(remainingSec<=60){
+    main.classList.add('state-warn');
+    td.classList.add('state-warn');
+    badge.textContent='残り1分'; badge.classList.add('warn');
+  } else if(status==='running'){
+    badge.textContent='進行中'; badge.classList.add('running');
+  } else if(status==='paused'){
+    badge.textContent='一時停止'; badge.classList.add('paused');
+  } else {
+    badge.textContent='待機中';
+  }
+
+  // Play/pause button
+  const ppBtn=document.getElementById('play-pause-btn');
+  ppBtn.textContent=status==='running'?'⏸':'▶';
+  ppBtn.classList.toggle('paused', status==='running');
+
+  // Progress bar
+  const total=state.agendas.reduce((a,ag)=>a+ag.durationSec,0);
+  const agElapsed=state.agendas.slice(0,currentIndex).reduce((a,ag)=>a+ag.durationSec,0);
+  const curElapsed=ag.durationSec-remainingSec;
+  const pct=total>0?Math.min(100,(agElapsed+curElapsed)/total*100):0;
+  const bar=document.getElementById('progress-bar-fill');
+  bar.style.width=pct+'%';
+  bar.style.background=isOvertime?'var(--danger)':remainingSec<=30?'var(--danger)':remainingSec<=60?'var(--warn)':'var(--accent)';
+
+  // Breadcrumb
+  const bc=document.getElementById('agenda-breadcrumb');
+  bc.innerHTML='';
+  state.agendas.forEach((a2,i)=>{
+    if(i>0){const sep=document.createElement('span');sep.className='bc-sep';sep.textContent='›';bc.appendChild(sep);}
+    const item=document.createElement('div');
+    item.className='bc-item'+(i<currentIndex?' done':i===currentIndex?' active':'');
+    item.textContent=`${a2.title} (${fmtSec(a2.durationSec)})`;
+    item.style.cursor='pointer';
+    item.addEventListener('click',()=>{
+      if(state.timer.status!=='idle') goToAgenda(i);
+    });
+    bc.appendChild(item);
+  });
+  // scroll active into view
+  const active=bc.querySelector('.active');
+  if(active) active.scrollIntoView({inline:'center',behavior:'smooth'});
+
+  // Next agenda
+  const next=state.agendas[currentIndex+1];
+  document.getElementById('next-title').textContent=next?next.title:'（最後のアジェンダ）';
+  document.getElementById('next-dur').textContent=next?fmtSec(next.durationSec):'—';
+
+  // Total elapsed
+  if(state._meetingStartTs){
+    const elapsed=(performance.now()-state._meetingStartTs)/1000;
+    document.getElementById('total-elapsed').textContent=fmtSec(elapsed);
+  }
+}
+
+function updatePresetSelect(){
+  const sel=document.getElementById('preset-select');
+  const val=sel.value;
+  sel.innerHTML='<option value="">— プリセットを選択 —</option>';
+  state.presets.forEach(p=>{
+    const opt=document.createElement('option');
+    opt.value=p.id; opt.textContent=p.name;
+    sel.appendChild(opt);
+  });
+  if(val) sel.value=val;
+}
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}
+
+function parseDuration(str){
+  str=str.trim();
+  if(str.includes(':')){
+    const [m,s]=str.split(':').map(x=>parseInt(x)||0);
+    return m*60+s;
+  }
+  return (parseInt(str)||0)*60;
+}
+
+// ===== VIEWS =====
+function showSetup(){
+  state.view='setup';
+  document.getElementById('setup-screen').classList.remove('hidden');
+  document.getElementById('running-screen').classList.add('hidden');
+  document.getElementById('back-to-setup-btn').classList.add('hidden');
+  // reset timer if idle
+  state.timer.status='idle';
+  state.timer.currentIndex=0;
+  state.timer.remainingSec=0;
+  state.timer.isOvertime=false;
+  if(state._rafId){cancelAnimationFrame(state._rafId);state._rafId=null;}
+  renderSetup();
+  saveAll();
+}
+
+function showRunning(){
+  if(state.agendas.length===0){ alert('アジェンダを1件以上追加してください'); return; }
+  state.view='running';
+  document.getElementById('setup-screen').classList.add('hidden');
+  document.getElementById('running-screen').classList.remove('hidden');
+  document.getElementById('back-to-setup-btn').classList.remove('hidden');
+  document.getElementById('finish-overlay').classList.add('hidden');
+  // init timer
+  state.timer.status='idle';
+  state.timer.currentIndex=0;
+  state.timer.remainingSec=state.agendas[0].durationSec;
+  state.timer.isOvertime=false;
+  state._alerted=new Set();
+  state._meetingStartTs=null;
+  const totalSec=state.agendas.reduce((a,ag)=>a+ag.durationSec,0);
+  const endDate=new Date(Date.now()+totalSec*1000);
+  state._scheduledEnd=endDate;
+  document.getElementById('end-time-display').textContent=fmtTime(endDate);
+  renderRunning();
+}
+
+// ===== EVENTS =====
+document.getElementById('start-btn').addEventListener('click',showRunning);
+document.getElementById('back-to-setup-btn').addEventListener('click',showSetup);
+document.getElementById('finish-edit-btn').addEventListener('click',()=>{document.getElementById('finish-overlay').classList.add('hidden');showSetup()});
+document.getElementById('finish-restart-btn').addEventListener('click',()=>{document.getElementById('finish-overlay').classList.add('hidden');showRunning()});
+
+document.getElementById('play-pause-btn').addEventListener('click',()=>{
+  // unlock audio on first interaction
+  try{getAudioCtx().resume()}catch(e){}
+  if(state.timer.status==='running') pauseTimer();
+  else startTimer();
+});
+document.getElementById('prev-btn').addEventListener('click',()=>{skipPrev();renderRunning()});
+document.getElementById('next-btn').addEventListener('click',()=>{skipNext();renderRunning()});
+document.getElementById('add30s-btn').addEventListener('click',()=>{addTime(30);renderRunning()});
+document.getElementById('add1m-btn').addEventListener('click',()=>{addTime(60);renderRunning()});
+document.getElementById('reset-btn').addEventListener('click',()=>{
+  const ag=state.agendas[state.timer.currentIndex];
+  if(ag){ state.timer.remainingSec=ag.durationSec; state.timer.isOvertime=false; state.timer.overtimeSec=0; }
+  renderRunning();
+});
+
+document.getElementById('add-agenda-btn').addEventListener('click',()=>{
+  state.agendas.push({id:uid(),title:'',durationSec:300,owner:''});
+  renderSetup(); saveAll();
+  // focus last title input
+  const inputs=document.querySelectorAll('.agenda-title-input');
+  if(inputs.length) inputs[inputs.length-1].focus();
+});
+
+document.getElementById('save-preset-btn').addEventListener('click',()=>{
+  const name=document.getElementById('preset-name-input').value.trim();
+  if(!name){alert('プリセット名を入力してください');return;}
+  const existing=state.presets.find(p=>p.name===name);
+  if(existing){ existing.agendas=JSON.parse(JSON.stringify(state.agendas)); }
+  else { state.presets.push({id:uid(),name,agendas:JSON.parse(JSON.stringify(state.agendas)),createdAt:new Date().toISOString()}); }
+  saveAll(); updatePresetSelect();
+  document.getElementById('preset-name-input').value='';
+});
+
+document.getElementById('load-preset-btn').addEventListener('click',()=>{
+  const id=document.getElementById('preset-select').value;
+  if(!id) return;
+  const p=state.presets.find(x=>x.id===id);
+  if(!p) return;
+  state.agendas=JSON.parse(JSON.stringify(p.agendas));
+  renderSetup(); saveAll();
+});
+
+document.getElementById('del-preset-btn').addEventListener('click',()=>{
+  const id=document.getElementById('preset-select').value;
+  if(!id) return;
+  state.presets=state.presets.filter(x=>x.id!==id);
+  saveAll(); updatePresetSelect();
+});
+
+document.getElementById('export-btn').addEventListener('click',()=>{
+  const json=JSON.stringify(state.agendas.map(({title,durationSec,owner,note})=>({title,durationSec,owner,note})),null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='agendas.json';a.click();
+});
+
+document.getElementById('import-btn').addEventListener('click',()=>{
+  document.getElementById('import-modal').classList.remove('hidden');
+  document.getElementById('import-textarea').value='';
+});
+document.getElementById('import-cancel-btn').addEventListener('click',()=>document.getElementById('import-modal').classList.add('hidden'));
+document.getElementById('import-ok-btn').addEventListener('click',()=>{
+  try{
+    const data=JSON.parse(document.getElementById('import-textarea').value);
+    if(!Array.isArray(data)) throw new Error();
+    state.agendas=data.map(d=>({id:uid(),title:d.title||'',durationSec:d.durationSec||300,owner:d.owner||'',note:d.note||''}));
+    document.getElementById('import-modal').classList.add('hidden');
+    renderSetup(); saveAll();
+  }catch(e){alert('JSONの形式が正しくありません');}
+});
+
+document.getElementById('sound-toggle-btn').addEventListener('click',()=>{
+  state.settings.soundEnabled=!state.settings.soundEnabled;
+  document.getElementById('sound-toggle-btn').textContent=state.settings.soundEnabled?'🔔 音あり':'🔕 ミュート';
+  saveAll();
+});
+
+document.getElementById('theme-btn').addEventListener('click',()=>{
+  state.settings.theme=state.settings.theme==='dark'?'light':'dark';
+  document.documentElement.dataset.theme=state.settings.theme;
+  document.getElementById('theme-btn').textContent=state.settings.theme==='dark'?'🌙':'☀️';
+  saveAll();
+});
+
+document.getElementById('fullscreen-btn').addEventListener('click',()=>{
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+  else document.exitFullscreen().catch(()=>{});
+});
+
+document.getElementById('auto-advance-chk').addEventListener('change',e=>{state.settings.autoAdvance=e.target.checked;saveAll()});
+document.getElementById('sound-type-sel').addEventListener('change',e=>{state.settings.soundType=e.target.value;saveAll()});
+
+// Keyboard shortcuts
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT') return;
+  if(state.view!=='running') return;
+  if(e.key===' '||e.code==='Space'){
+    e.preventDefault();
+    try{getAudioCtx().resume()}catch(ee){}
+    if(state.timer.status==='running') pauseTimer();
+    else startTimer();
+    renderRunning();
+  }
+  if(e.key==='ArrowRight'){e.preventDefault();skipNext();renderRunning()}
+  if(e.key==='ArrowLeft'){e.preventDefault();skipPrev();renderRunning()}
+  if(e.key==='+'||e.key==='='){ e.preventDefault();addTime(60);renderRunning() }
+});
+
+// ===== INIT =====
+loadAll();
+document.documentElement.dataset.theme=state.settings.theme;
+document.getElementById('theme-btn').textContent=state.settings.theme==='dark'?'🌙':'☀️';
+document.getElementById('sound-toggle-btn').textContent=state.settings.soundEnabled?'🔔 音あり':'🔕 ミュート';
+document.getElementById('auto-advance-chk').checked=state.settings.autoAdvance;
+document.getElementById('sound-type-sel').value=state.settings.soundType;
+
+if(state.view==='running'){
+  // restore session view
+  document.getElementById('setup-screen').classList.add('hidden');
+  document.getElementById('running-screen').classList.remove('hidden');
+  document.getElementById('back-to-setup-btn').classList.remove('hidden');
+  renderRunning();
+} else {
+  renderSetup();
+}
+</script>
